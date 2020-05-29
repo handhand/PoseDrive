@@ -1,0 +1,693 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <title>Handhand Lab | PoseNet Drive</title>
+    <link type="favicon" rel="shortcut icon" href="/l.png" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/0.7.2/p5.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/0.7.2/addons/p5.dom.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/0.7.2/addons/p5.sound.min.js"></script>
+    <script src="https://unpkg.com/ml5@0.1.3/dist/ml5.min.js"></script>
+    <script src="https://code.jquery.com/jquery-3.4.1.slim.min.js" integrity="sha384-J6qa4849blE2+poT4WnyKhv5vZF5SrPo0iEjwBvKU7imGFAV0wwj1yYfoRSJoZ+n" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.0/dist/umd/popper.min.js" integrity="sha384-Q6E9RHvbIyZFJoft+2mJbHaEWldlvI9IOYy5n3zV9zzTtmI3UksdQRVvoxMfooAo" crossorigin="anonymous"></script>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css" integrity="sha384-Vkoo8x4CGsO3+Hhxv8T/Q5PaXtkKtu6ug5TOeNV6gBiFeWPGFN9MuhOf23Q9Ifjh" crossorigin="anonymous">
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/js/bootstrap.min.js" integrity="sha384-wfSDF2E50Y2D1uUdj0O3uMBJnjuUD4Ih7YwaYd1iqfktj0Uod8GCExl3Og8ifwB6" crossorigin="anonymous"></script>
+    <link href="https://cdn.bootcss.com/font-awesome/5.13.0/css/all.min.css" rel="stylesheet">
+    <!-- <style>
+      #canvasContainer {
+        margin: 0;
+        display: flex;
+
+        /* This centers our sketch horizontally. */
+        justify-content: center;
+
+        /* This centers our sketch vertically. */
+        align-items: center;
+      }
+    </style> -->
+</head>
+<body>
+  <nav class="navbar navbar-dark bg-dark">
+    <a class="navbar-brand" href="/">
+        <!-- <img src="rocket.svg" width="30" height="30" alt="">   -->
+        <span class="fa fa-stack">
+            <i class="fa fa-square fa-stack-2x text-danger"></i>
+            <i class="fa fa-hand-spock fa-stack-1x fa-inverse"></i>
+        </span>
+        <span class="h6">Handhand Lab <span class="d-none d-md-inline">| Pose Drive</span></span>
+    </a>
+  </nav>
+  <div id="canvasContainer"></div>
+<script>
+
+// p5js preload resources
+function preload(){
+    truckImgFiles.forEach(element => {
+        truckImgs.push(loadImage("assets/"+element));
+    });
+    carImgFiles.forEach(element=>{
+        carImgs.push(loadImage("assets/"+element));
+    });
+    cactusImgFiles.forEach(element=>{
+        cactusImgs.push(loadImage("assets/"+element));
+    });
+    playerCarImg = loadImage('assets/car_f1.png');
+}
+
+//get a random element from array
+function getRandomFromArray(imgArray){
+    return imgArray[parseInt(Math.random()*imgArray.length)]
+}
+
+//tree object
+class Tree{
+    constructor(leftX, width, height){
+        this.leftX = leftX;
+        this.width = width;
+        this.height = height;
+        this.reset();
+    }
+
+    update(){
+        this.topY += speed;
+        
+        //replace tree
+        if(this.topY > windowHeight){
+            this.reset();
+        }
+    }
+
+    draw(){
+        // fill(0,255,0)
+        // rect(this.leftX, this.topY, this.width, this.height)
+        image(this.img,this.leftX, this.topY, this.width, this.height)
+    }
+
+    reset(){
+        this.topY = - Math.random() * windowHeight;
+        this.img = getRandomFromArray(cactusImgs);
+    }
+}
+
+//road object
+class Road{
+
+    constructor(leftX, width){
+        this.leftX = leftX;
+        this.width = width;
+        this.lines = [];
+        this.trees = [];
+        for(let i=0;;i++){
+            let topY = (LINE_HEIGHT + LINE_SEP) * i;
+            if(topY > windowHeight) break;
+            let line = new RoadLine(this.leftX + this.width/2, topY, 5);
+            this.lines.push(line);
+
+            //add some tree
+            let rand = Math.random();
+            if(rand>0.9){
+                let leftX = rand < 0.95 ? this.leftX - 30 -50 * Math.random() : this.leftX + this.width + 10 + 50 * Math.random();
+                this.trees.push(new Tree(leftX, 20, 50))
+            }
+        }
+    }
+
+    update(){
+        //lines
+        for(let i=this.lines.length - 1;i>=0;i--){
+            this.lines[i].update();
+            if(this.lines[i].topY > windowHeight){
+                this.lines.splice(i,1);
+            }
+        }
+
+        //trees
+        for(let i=this.trees.length - 1;i>=0;i--){
+            this.trees[i].update();
+        }
+
+        //add some more line
+        while(true){
+            let topY = this.lines[0].topY - (LINE_HEIGHT + LINE_SEP);
+            if(topY < 0) break;
+            let line = new RoadLine(this.leftX + this.width/2, topY, 5);
+            this.lines.unshift(line);
+        }
+    }
+
+    draw(){
+        fill(80,80,80);
+        stroke(160);
+        strokeWeight(5);
+        rect(this.leftX,-5,this.width,windowHeight+10);
+        this.lines.forEach(line=>line.draw())
+        this.trees.forEach(tree=>tree.draw())
+    }
+}
+
+//white road sign line
+class RoadLine{
+    constructor(leftX,topY, width){
+        this.leftX = leftX;
+        this.topY = topY;
+        this.width = width;
+        this.height = LINE_HEIGHT;
+    }
+    update(){
+        this.topY += speed;
+    }
+    draw(){
+        noStroke();
+        fill(255,255,255);
+        rect(this.leftX,this.topY,this.width, this.height)
+    }
+}
+
+//player car
+class Car{
+    constructor(leftX, topY, width, height){
+        this.leftX = leftX;
+        this.topY = topY;
+        this.width = width;
+        this.height = height;
+    }
+    update(){
+        if(isOver)return;
+        if(keyIsDown(LEFT_ARROW)){
+            this.leftX -= CAR_SIDE_SPEED
+        }
+        if(keyIsDown(RIGHT_ARROW)){
+            this.leftX += CAR_SIDE_SPEED
+        }
+        if(keyIsDown(DOWN_ARROW)){
+            speed -= 0.1
+        }
+        if(keyIsDown(UP_ARROW)){
+            speed += 0.1
+        }
+
+        //use steering wheel
+        this.leftX += direction;
+
+        //check road limit
+        if(this.leftX < road.leftX) this.leftX = road.leftX;
+        if(this.leftX > road.leftX + road.width - this.width) this.leftX = road.leftX + road.width - this.width;
+
+        //check collide
+        for(let i=0;i<npcCars.length;i++){
+            if(npcCars[i].collide(this)){
+                isOver = true;
+            }
+        }
+        if(isOver){
+            speed = 0;
+            sound.stop();
+        }
+    }
+    draw(){
+        // fill(255,4,4);
+        // rect(this.leftX, this.topY, this.width, this.height)
+        image(playerCarImg, this.leftX, this.topY, this.width, this.height)
+    }
+}
+
+//npc car
+class NpcCar{
+    constructor(w, h, type){
+        this.leftX = max(road.leftX, road.leftX + Math.random() * road.width - CAR_WIDTH);
+        this.width = w;
+        this.height = h;
+        this.id = parseInt(100 * Math.random());
+        this.type = type;
+        this.reset();
+
+        this.sideStepCount = 0;
+        this.sideSpeed = 0;
+        this.color = 255 * this.id;
+    }
+
+    update(){
+        //save old coordinate, restore them if collide happens
+        let oldTopY = this.topY;
+        let oldLeftX = this.leftX;
+
+        //move downwards
+        this.topY = this.topY + speed - this.speed//relative speed 
+
+        //randomly to left or right
+        if(this.sideStepCount==0){
+            this.sideStepCount = 40
+            let sign = Math.random() > 0.5 ? 1 : -1;
+            this.sideSpeed = sign * Math.random() * CAR_SIDE_SPEED;
+        }
+        else{
+            this.sideStepCount--;
+            this.leftX += this.sideSpeed;
+        }
+        
+        //detect road side
+        if(this.leftX < road.leftX || this.leftX > road.leftX + road.width - this.width){
+            this.leftX = oldLeftX
+        }
+
+        //collide detection
+        let isCollide = false;
+        for(let i=0;i<npcCars.length;i++){
+            if(npcCars[i].id == this.id)continue;
+            if(this.collide(npcCars[i])){
+                this.leftX = oldLeftX
+                this.topY = oldTopY
+                isCollide = true;
+                break;
+            }
+        }
+
+        // if(!isOver)console.log("car" + this.id + " y:"+this.topY + " isCollide:"+isCollide + " relative speed:"+(speed - this.speed));
+
+        //out of sight, reset
+        if(this.topY > windowHeight){
+            
+            this.reset()
+            //reset img
+        }
+    }
+    draw(){
+        // fill(this.color);
+        // rect(this.leftX, this.topY, this.width, this.height)
+        image(this.img, this.leftX, this.topY, this.width, this.height)
+    }
+
+    collide(other){
+        if (this.leftX < other.leftX + other.width &&
+            this.leftX + this.width > other.leftX &&
+            this.topY < other.topY + other.height &&
+            this.topY + this.height > other.topY) {
+            // collision detected!
+            // console.log("collide")
+            return true;
+        }
+        return false;
+    }
+
+    reset(){
+        this.topY = getNpcCarInitY()
+        //reset speed, at least 1/3 speed
+        this.speed = speed/3 + speed* 2/3 * Math.random() ;
+        //reset img
+        if(this.type=="truck"){
+            this.img = getRandomFromArray(truckImgs);
+        }else if(this.type=="car"){
+            this.img = getRandomFromArray(carImgs);
+        }
+    }
+}
+
+
+const LINE_HEIGHT = 40
+const LINE_SEP = 50
+const CAR_WIDTH = 30
+const CAR_HEIGHT = 60
+const CAR_SIDE_SPEED = 1.5
+const ROAD_WIDTH = 200;
+const CAR_SPEED = 12;
+
+let playerCarImg;
+const truckImgFiles = ["car_truck.png","car_truck2.png","car_truck3.png"]
+const carImgFiles = ["car_blue.png","car_brown.png","car_red.png","car_orange.png","car_pickup.png", "car_black.png",
+                "car_police.png","car_purple.png","car_red2.png","car_yellow.png", "car_amb.png", "car_taxi.png", "car_truck4.png","car_van.png","car_pickup2.png"]
+const cactusImgFiles = ["cactus1.png","cactus2.png","cactus3.png","cactus4.png"]
+let imgBush;
+let truckImgs = []
+let carImgs = []
+let cactusImgs = []
+let isOver = false;
+let isWebCam = false;
+let video;
+let isDetected = false
+let leftWristX = 0;
+let leftWristY = 0;
+let rightWristX = 0;
+let rightWristY = 0;
+//engine sound
+let sound;
+
+var road;
+var playerCar;
+var npcCars = [];
+var speed = 0;
+
+//methods to check camera availability
+navigator.getMedia = ( navigator.getUserMedia || // use the proper vendor prefix
+                       navigator.webkitGetUserMedia ||
+                       navigator.mozGetUserMedia ||
+                       navigator.msGetUserMedia);
+
+// posenet model ready callback
+function modelReady(){
+    startGame();
+}
+
+// posenet detected poses callback
+function gotPoses(poses){
+
+    // no poses detected
+    if(poses.length == 0){
+        isDetected = false;
+        console.log("no poses")
+        return;
+    }
+
+    isDetected = true;
+    let newleftWristX = poses[0].pose.keypoints[9].position.x;
+    let newleftWristY = poses[0].pose.keypoints[9].position.y;
+    let newrightWristX = poses[0].pose.keypoints[10].position.x;
+    let newrightWristY = poses[0].pose.keypoints[10].position.y;
+    leftWristX = lerp(leftWristX, newleftWristX, 0.5);
+    leftWristY = lerp(leftWristY, newleftWristY, 0.5);
+    rightWristX = lerp(rightWristX, newrightWristX, 0.5);
+    rightWristY = lerp(rightWristY, newrightWristY, 0.5);
+    // console.log("got poses " + newleftWristX + " " + newleftWristY + " " + newrightWristX + " " + newrightWristY)
+}
+
+/*********************************
+*****  p5js starting point   *****
+**********************************/
+function setup() {
+  // must use https to use camera
+  if(window.location.port=='80' || window.location.protocol=='http:'){
+    window.location.replace("https://"+window.location.hostname + window.location.pathname);
+    return;
+  }
+
+  let shift = parseInt($(".navbar").height()) + parseInt($(".navbar").css('padding-top')); 
+  var canvas = createCanvas(windowWidth, windowHeight - shift);
+  canvas.parent("#canvasContainer");
+
+  //check webcam available
+  navigator.getMedia({video: true}, function() {
+    // webcam is available
+    isWebCam = true;
+    video = createCapture(VIDEO);
+    video.elt.setAttribute('playsinline', '');
+    video.hide();
+    // ml5
+    poseNet = ml5.poseNet(video, modelReady);
+    poseNet.on('pose', gotPoses);
+
+  }, function() {
+    // webcam is not available, start game using keyboard
+    isWebCam = false;
+    startGame();
+  });
+
+  //init basic game models
+  //road
+  road = new Road(windowWidth/2 - ROAD_WIDTH/2, ROAD_WIDTH)
+  //player car
+  playerCar = new Car(road.leftX, windowHeight - LINE_SEP * 3 - CAR_HEIGHT, CAR_WIDTH, CAR_HEIGHT);
+}
+
+/**
+ * start game
+ */
+function startGame(){
+    isOver = false;
+    startTimeStamp = 0;
+    npcCars = [];
+    speed = CAR_SPEED;
+    
+    //big truck
+    for(let i = 0;i<1;i++){
+        npcCars.push(new NpcCar(40, 100, "truck"));
+    }
+
+    //small car
+    for(let i = 0;i<3;i++){
+        npcCars.push(new NpcCar(30, 60, "car"));
+    }
+
+    sound = createAudio("assets/engine_sound.wav");
+    sound.loop();
+}
+
+/**
+ * return an Y value smaller than the 'highest' npc car,
+ * making sure no collision when init
+**/
+function getNpcCarInitY(){
+    let toppest = 0;
+    for(let i=0; i<npcCars.length; i++){
+        if(npcCars[i].topY < toppest) toppest = npcCars[i].topY;
+    }
+    return toppest - 120; 
+}
+
+/****************
+**  Main Loop  **
+*****************/
+function draw() {//move image by the width of image to the left
+  background(255,246,143);
+
+  // video feed size 
+  if(video!=undefined){
+
+    videoWidth = windowWidth/3;
+    videoWidth = min(videoWidth, 300);
+    videoHeight = videoWidth * video.height/video.width;
+    console.log("w " + videoWidth + " h " + videoHeight +" " +video.width + " " + video.height);
+  }
+
+  updateSteeringWheel();//posenet
+
+  road.update();
+  playerCar.update();
+  for(let i=0;i<npcCars.length;i++){
+    npcCars[i].update();
+    // console.log(npcCars[i].topY);
+  }  
+
+  road.draw();
+  for(let i=0;i<npcCars.length;i++){
+    npcCars[i].draw();
+  }
+  playerCar.draw();
+
+  drawSteeringWheel();//posenet
+  drawBoard();
+
+  if(isOver){
+    fill(255,0,0);
+    textSize(windowWidth/10);
+    textAlign(CENTER,CENTER)
+    noStroke();
+    text('Game Over', windowWidth/2, windowHeight/2);
+    drawFire(playerCar.leftX, playerCar.topY);
+    textAlign(LEFT,TOP);
+    return;
+  }
+
+  if(!isWebCam){
+    fill(255,0,0);
+    textSize(windowWidth/10);
+    textAlign(CENTER,CENTER)
+    noStroke();
+    text('You need a camera\nto play this game', windowWidth/2, windowHeight/2);
+    textAlign(LEFT,TOP);
+  }
+}
+
+//******************** score board etc *********************
+let startTimeStamp = 0;
+let score = 0//时间成绩
+function drawBoard(){
+    if(startTimeStamp==0){
+        startTimeStamp = Date.now()
+    }
+    if(!isOver){
+        score = (Date.now() - startTimeStamp) / 1000;
+        // console.log("las "+date.getTime() + " " + startTimeStamp);
+    }
+    noStroke();
+    textSize(25);
+    strokeWeight(3);
+    fill(255,165,0);
+    text("Time: " + score , 10, 30);
+    if(!isDetected){
+        fill(255,0,0)
+        text("No hand detected!", 10, 70);
+    }
+}
+
+//******************** steering wheel *****************
+let sinAngle;
+let cosAngle;
+const THRESHOLD_1 = 5;//if steering wheel angle greater than 5 degree, car side way speed set to CAR_1_STEERING_SPEED
+const THRESHOLD_2 = 40;//if steering wheel angle greater than 40 degree, car side way speed set to CAR_2_STEERING_SPEED
+const CAR_1_STEERING_SPEED = 1.5;//speed to go left or right
+const CAR_2_STEERING_SPEED = 2.5;
+let direction = 0;
+let distBetweenWrists = 0;
+let isShiftingGear = false;
+
+function updateSteeringWheel(){
+  if(leftWristY==NaN)return;
+  distBetweenWrists = dist(leftWristX,leftWristY,rightWristX,rightWristY);
+  sinAngle = (leftWristY - rightWristY)/distBetweenWrists;
+  cosAngle = (leftWristX - rightWristX)/distBetweenWrists;
+  let steeringDegree = Math.asin(sinAngle) * (180/Math.PI);
+//   console.log("steering:"+steeringDegree);
+  if(steeringDegree > THRESHOLD_1 && steeringDegree < THRESHOLD_2){
+      //left
+      direction = - CAR_1_STEERING_SPEED;
+  }
+  else if(steeringDegree > THRESHOLD_2){
+      direction = - CAR_2_STEERING_SPEED;
+  }
+  else if(steeringDegree < - THRESHOLD_1 && steeringDegree > - THRESHOLD_2){
+      direction = CAR_1_STEERING_SPEED;
+  }
+  else if(steeringDegree < - THRESHOLD_2){
+      direction = CAR_2_STEERING_SPEED;
+  }
+  else{
+      direction = 0;
+  }
+
+  //gear
+//   if(!isShiftingGear && leftEyeY > noseY){
+//     //nod detected!
+//     isShiftingGear = true;
+//     speed +=2;
+//     if(speed > CAR_SPEED + 6)speed = CAR_SPEED;
+//   }
+
+//   if(isShiftingGear && leftEyeY < noseY){
+//       isShiftingGear = false;
+//   }
+}
+
+let videoWidth = 140;
+let videoHeight = 200;
+function drawSteeringWheel(){
+  if(video==undefined)return;
+  if(!isWebCam)return;  
+//   console.log(video.width + " " + video.height + " " + windowWidth + " " + windowHeight)
+  
+  //mirror the camera feed
+  push();
+  translate(width, 0);
+  scale(-1,1);
+
+  //draw camera
+  image(video, 0,0, videoWidth, videoHeight);
+
+  // draw steering wheel: 1. indicate the current direction. 2. Let the user put her hands where the camera sees
+  // pc and mobile may have different ratio
+  let r = min(videoWidth, videoHeight)/4;
+  let centerx = videoWidth/2;
+  let centery = videoHeight - r - r/2;
+  stroke(0,0,0,200);
+  strokeWeight(10);
+  noFill();
+  ellipse(centerx,centery,r * 2);
+
+//   console.log("draw indicator " + centerx + " " + " " +sinAngle + " " + cosAngle)
+  // draw direction indicator
+  let endx = centerx + r * sinAngle;
+  let endy = centery - r * cosAngle;
+  line(centerx, centery, endx, endy);
+
+  //draw handle
+  let xdiff = r * cosAngle
+  let ydiff = r * sinAngle
+  line(centerx - xdiff, centery - ydiff, centerx + xdiff, centery + ydiff);
+
+  //draw hands'(wrists) point , in video coordinates
+  noStroke()
+  fill(255,20,20)
+  let ratioX = videoWidth / video.width;
+  let ratioY = videoHeight /video.height;
+  let leftHandX = leftWristX * ratioX;
+  let leftHandY = leftWristY * ratioY;
+  let rightHandX = rightWristX * ratioX;
+  let rightHandY = rightWristY * ratioY;
+  ellipse(leftHandX, leftHandY, 5)
+  ellipse(rightHandX, rightHandY, 5)
+
+  pop();
+}
+
+//click game over to restart
+function mouseClicked(){
+    if(!isOver)return;
+    startGame();
+}
+
+
+// ***********************  fire  ************************
+// make an empty array
+let flames = [];
+
+function drawFire(x,y) {
+  
+  // loop through all the bugs backwards
+  // looping backwards lets us see older particles on top
+  for(let i = flames.length -1; i>= 0; i--){
+    flames[i].move();
+    flames[i].show();
+    flames[i].shrink();
+    
+    if(flames[i].radius <= 30 ){
+      //remove the dead ones
+      flames.splice(i, 1);
+    }
+    
+  }
+  
+  // make more fire!!!
+  let radius = random(20,40);
+  let b = new Flame(x, y, radius);
+  flames.push(b);
+}
+
+class Flame{
+  constructor(tempX, tempY, tempR) {
+    this.x = tempX;
+    this.y = tempY;
+    this.radius = tempR;
+    
+    // pick a random color
+    this.color = color(255);
+    let r = random(3);
+    if(r < 1){
+      this.color = color(255,100,20,150); // orange
+    } else if(r >= 1 && r < 2 ){
+      this.color = color(255, 200, 10, 150); // yellow
+    } else if(r >= 2 ){
+      this.color = color(255, 5, 5, 150); // reddish
+    }
+    
+  }
+
+  show() {
+    noStroke();
+    fill(this.color);
+    ellipse(this.x, this.y, this.radius);
+  }
+
+  move() {
+    this.x += random(-5, 5);
+    this.y -= random(1, 3);
+  }
+  
+  shrink(){    
+   // shrink size over time
+   this.radius-=0.4;
+  }
+
+}
+
+</script>
+</body>
+</html>
